@@ -1,7 +1,8 @@
+streamlit-webrtc
+av
 customtkinter
 opencv-python
 cvzone
 ultralytics
-streamlit
 pandas
 matplotlib
