@@ -512,7 +512,9 @@ with tabs[0]:
                 
             metric_ph = st.empty()
             video_feed_ph = st.empty()
+            audio_ph = st.empty()
             
+            failed_reads = 0
             # 30-frame in-place loop
             for frame_idx in range(30):
                 if not st.session_state.session_active or st.session_state.session_paused:
@@ -520,7 +522,16 @@ with tabs[0]:
                     
                 success, img = st.session_state.cap.read()
                 if not success:
-                    time.sleep(0.03)
+                    failed_reads += 1
+                    time.sleep(0.1)
+                    if failed_reads > 10:
+                        st.session_state.session_active = False
+                        if st.session_state.cap is not None:
+                            st.session_state.cap.release()
+                            st.session_state.cap = None
+                        st.error("Could not connect to webcam. Please ensure your camera is connected and not in use by another app.")
+                        st.rerun()
+                        break
                     continue
                     
                 img = cv2.flip(img, 1)
@@ -649,7 +660,7 @@ with tabs[0]:
                         if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
                             st.session_state.current_playing = "facehide"
                             st.session_state.last_played_time = now
-                            st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
+                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
                 elif is_sleepy:
                     status_text = "SLEEPING!"
                     status_text_color = "#ef4444"
@@ -659,7 +670,7 @@ with tabs[0]:
                         if st.session_state.current_playing != "sleep" or (now - st.session_state.last_played_time > 4.0):
                             st.session_state.current_playing = "sleep"
                             st.session_state.last_played_time = now
-                            st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
+                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
                 elif phone_detected:
                     status_text = "PHONE DETECTED!"
                     status_text_color = "#f97316"
@@ -669,10 +680,11 @@ with tabs[0]:
                         if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
                             st.session_state.current_playing = "phone"
                             st.session_state.last_played_time = now
-                            st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
+                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
                             
                 if not distracted:
                     st.session_state.current_playing = None
+                    audio_ph.empty()
                     
                 # 5. Timer Increment
                 now_t = time.time()
@@ -770,6 +782,7 @@ with tabs[0]:
         )
         
         if ctx.state.playing:
+            audio_ph = st.empty()
             # Sync sidebar settings dynamically to WebRTC thread
             if ctx.video_processor:
                 ctx.video_processor.eye_ratio_threshold = eye_ratio_threshold
@@ -838,7 +851,7 @@ with tabs[0]:
                     if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
                         st.session_state.current_playing = "facehide"
                         st.session_state.last_played_time = now
-                        st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
+                        audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
             elif is_sleepy:
                 status_text = "SLEEPING!"
                 status_text_color = "#ef4444"
@@ -847,7 +860,7 @@ with tabs[0]:
                     if st.session_state.current_playing != "sleep" or (now - st.session_state.last_played_time > 4.0):
                         st.session_state.current_playing = "sleep"
                         st.session_state.last_played_time = now
-                        st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
+                        audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
             elif phone_detected:
                 status_text = "PHONE DETECTED!"
                 status_text_color = "#f97316"
@@ -856,10 +869,11 @@ with tabs[0]:
                     if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
                         st.session_state.current_playing = "phone"
                         st.session_state.last_played_time = now
-                        st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
+                        audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
                         
             if not distracted:
                 st.session_state.current_playing = None
+                audio_ph.empty()
                 
             # Stats Panel Display
             tot_h = st.session_state.total_sec // 3600
