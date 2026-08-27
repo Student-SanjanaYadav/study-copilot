@@ -1,7 +1,7 @@
 streamlit-webrtc
 av
 customtkinter
-opencv-python
+opencv-python-headless
 cvzone
 ultralytics
 pandas
