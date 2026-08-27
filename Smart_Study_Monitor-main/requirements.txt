@@ -1,0 +1,7 @@
+customtkinter
+opencv-python
+cvzone
+ultralytics
+streamlit
+pandas
+matplotlib
