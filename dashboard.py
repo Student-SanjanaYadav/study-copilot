@@ -3,7 +3,6 @@ import cv2
 import cvzone
 from cvzone.FaceMeshModule import FaceMeshDetector
 from ultralytics import YOLO
-import ctypes
 import os
 import time
 import base64
@@ -23,79 +22,143 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling Injection (Premium Dark Theme UI/UX)
+# Custom Premium Styling Injection (Glassmorphism & Advanced Animations)
 st.markdown(
     """
     <style>
-    /* Global Font Style */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    /* Global Font & Smooth Layout */
+    @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@500;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+    
     html, body, [class*="css"], .stApp {
-        font-family: 'Poppins', sans-serif !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
         background-color: #0b0f19 !important;
-        color: #f1f5f9 !important;
+        color: #f8fafc !important;
     }
     
-    /* Clean Sidebar Styling */
+    /* Premium Headers */
+    h1, h2, h3, h4 {
+        font-family: 'Cabinet Grotesk', sans-serif !important;
+        font-weight: 700 !important;
+    }
+    
+    /* Clean Glassmorphic Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #0f172a !important;
-        border-right: 1px solid #1e293b;
+        background-color: rgba(15, 23, 42, 0.8) !important;
+        backdrop-filter: blur(16px);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
     
-    /* Rounded & Modern WebCam Image Container */
+    /* Rounded & Modern WebCam Containers */
     .stImage img, div[data-testid="stWebRtcStreamer"] iframe {
-        border-radius: 16px;
-        border: 4px solid #1e293b;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        border-radius: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
     }
     
-    /* Custom Styled Buttons */
+    /* Premium Hover Buttons */
     .stButton>button {
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         font-weight: 600 !important;
-        padding: 0.6rem 1.2rem !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        transition: all 0.2s ease-in-out !important;
+        padding: 0.7rem 1.5rem !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(37, 99, 235, 0.05) 100%) !important;
+        color: #f8fafc !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     .stButton>button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.4) 0%, rgba(37, 99, 235, 0.1) 100%) !important;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+        border-color: rgba(37, 99, 235, 0.4) !important;
     }
     
-    /* Tabs Navigation bar design */
+    /* Glassmorphic Tabs Navigation */
     div[data-testid="stTabBar"] {
-        background: #0f172a;
-        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(12px);
+        border-radius: 18px;
         padding: 6px;
-        border: 1px solid #1e293b;
+        border: 1px solid rgba(255, 255, 255, 0.05);
         margin-bottom: 25px;
     }
     button[data-baseweb="tab"] {
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         padding: 10px 24px !important;
         color: #94a3b8 !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
         border: none !important;
+        transition: all 0.25s ease !important;
     }
     button[aria-selected="true"] {
-        background-color: #2563eb !important;
+        background: #2563eb !important;
         color: #ffffff !important;
-        font-weight: 600 !important;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
     }
     
-    /* Metric Cards Grid layout styling */
+    /* Interactive Glassmorphic Metric Cards */
     .metric-card-wrapper {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border: 1px solid #334155;
-        border-radius: 16px;
-        padding: 20px;
+        background: rgba(30, 41, 59, 0.4) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 20px !important;
+        padding: 20px !important;
         text-align: center;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     .metric-card-wrapper:hover {
-        transform: translateY(-4px);
-        border-color: #3b82f6;
+        transform: translateY(-4px) scale(1.01) !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 20px 30px -5px rgba(59, 130, 246, 0.15) !important;
+    }
+    
+    /* Animated Gradient Banner */
+    .dashboard-banner {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+        border: 1px solid rgba(59, 130, 246, 0.15);
+        border-radius: 24px;
+        padding: 35px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+    .dashboard-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.07) 0%, transparent 60%);
+        animation: rotate 20s linear infinite;
+        z-index: 0;
+    }
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Clean Sidebar Sliders */
+    div[data-testid="stSlider"] {
+        padding-top: 10px;
+    }
+    
+    /* Alert Glowing Badge */
+    .status-badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        animation: pulse-glow 2s infinite;
+    }
+    @keyframes pulse-glow {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); opacity: 0.9; }
+        100% { transform: scale(1); }
     }
     </style>
     """,
@@ -114,7 +177,7 @@ def get_data(query):
         df = pd.read_sql_query(query, conn)
         conn.close()
         return df
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
 
 # Base64 Audio helper to embed and play audio directly in client browser (cloud-compatible)
@@ -302,75 +365,75 @@ if not st.session_state.session_active:
         st.session_state.cap.release()
         st.session_state.cap = None
 
-# ----------------- SIDEBAR SETTINGS & CAMERA MODES -----------------
+# ----------------- SIDEBAR CONFIGURATION -----------------
 st.sidebar.markdown(
     """
-    <div style="text-align: center; margin-bottom: 25px;">
-        <h2 style="color: #3b82f6; font-weight: 700; margin-bottom: 5px;">STUDY CO-PILOT</h2>
-        <span style="color: #64748b; font-size: 0.85rem;">Smart Distraction Monitoring</span>
+    <div style="margin-bottom: 25px;">
+        <h2 style="color: #3b82f6; font-size: 1.5rem; letter-spacing: -0.02em; margin-bottom: 0px;">FOCUS SPACE</h2>
+        <span style="color: #64748b; font-size: 0.8rem; font-weight: 500;">Active Session Controls</span>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-st.sidebar.subheader("Camera Connection Mode 🎥")
+st.sidebar.subheader("Camera Input Mode 🎥")
 camera_mode = st.sidebar.selectbox(
-    "Choose Mode",
+    "Select Source",
     ["Local Webcam (OpenCV)", "Cloud WebRTC (Browser)"],
-    help="Select Local Webcam for 100% reliable local testing. Choose Cloud WebRTC when deploying online to your friend."
+    help="Select Local Webcam for native zero-lag execution. Choose Cloud WebRTC when testing browser-only from a deployed link."
 )
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Alarm Swaps 🚨")
-mute_audio = st.sidebar.checkbox("Mute Audio Alarms", value=False)
-enable_sleep = st.sidebar.checkbox("Enable Sleep Alarm", value=True)
-enable_phone = st.sidebar.checkbox("Enable Phone Alarm", value=True)
-enable_facehide = st.sidebar.checkbox("Enable Cover Alarm", value=True)
+st.sidebar.subheader("Alert Toggles 🔔")
+mute_audio = st.sidebar.checkbox("Mute sound alarms", value=False)
+enable_sleep = st.sidebar.checkbox("Enable drowsiness alerts", value=True)
+enable_phone = st.sidebar.checkbox("Enable phone detection alerts", value=True)
+enable_facehide = st.sidebar.checkbox("Enable camera-covered alerts", value=True)
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Sensitivity Controls ⚙️")
+st.sidebar.subheader("Fine-Tuning ⚙️")
 
-eye_ratio_threshold = st.sidebar.slider("Eye Aspect Threshold", min_value=5.0, max_value=20.0, value=11.0, step=0.5)
-sleep_threshold_frames = st.sidebar.slider("Sleep Trigger (Frames)", min_value=5, max_value=50, value=15)
-phone_conf_threshold = st.sidebar.slider("Phone Detection Thresh (%)", min_value=30, max_value=90, value=50) / 100.0
+eye_ratio_threshold = st.sidebar.slider("Drowsiness Eye Threshold", min_value=5.0, max_value=20.0, value=11.0, step=0.5)
+sleep_threshold_frames = st.sidebar.slider("Drowsiness Duration (Frames)", min_value=5, max_value=50, value=15)
+phone_conf_threshold = st.sidebar.slider("YOLO Phone Confidence (%)", min_value=30, max_value=90, value=50) / 100.0
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
     """
-    <div style="text-align: center; font-size: 0.8rem; color: #475569;">
-        Powered by YOLOv8 & MediaPipe Mesh
+    <div style="font-size: 0.8rem; color: #475569; font-weight: 500; text-align: center;">
+        Built for distraction-free deep work.
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# ----------------- MAIN INTERFACE -----------------
+# ----------------- MAIN LAYOUT -----------------
 st.markdown(
     """
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-        <div style="background-color: #2563eb; padding: 12px; border-radius: 12px; font-size: 1.8rem; line-height: 1;">🎓</div>
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 25px;">
+        <div style="background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); padding: 12px; border-radius: 16px; font-size: 1.8rem; line-height: 1; box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);">🎓</div>
         <div>
-            <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700; background: linear-gradient(to right, #3b82f6, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Smart Study Monitor</h1>
-            <p style="margin: 0; color: #94a3b8; font-size: 1rem;">Track study sessions, boost concentration metrics, and minimize phone distractions.</p>
+            <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; background: linear-gradient(to right, #3b82f6, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.03em;">Smart Study Monitor</h1>
+            <p style="margin: 0; color: #94a3b8; font-size: 0.95rem; font-weight: 400;">An interactive, real-time companion designed to maximize study habits and keep distractions away.</p>
         </div>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-tabs = st.tabs(["🎥 Live Monitor", "📊 Focus Analytics", "📋 Session History"])
+tabs = st.tabs(["🎥 Focus Space", "📊 Analytics", "📋 History"])
 
-# ----- TAB 1: LIVE MONITOR -----
+# ----- TAB 1: FOCUS SPACE -----
 with tabs[0]:
     
-    # ------------------ DUAL MODE 1: LOCAL OPENCV MODE ------------------
+    # ------------------ MODE 1: LOCAL OPENCV STREAM ------------------
     if camera_mode == "Local Webcam (OpenCV)":
-        st.subheader("Local Stream (Flicker-Free OpenCV)")
+        st.subheader("Webcam Session Stream")
         
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
         with col_btn1:
             if not st.session_state.session_active:
-                if st.button("▶️ Start Study Session", type="primary", use_container_width=True):
+                if st.button("▶️ Start Session", type="primary", use_container_width=True):
                     st.session_state.session_id = database.start_session()
                     st.session_state.session_active = True
                     st.session_state.session_paused = False
@@ -389,15 +452,14 @@ with tabs[0]:
                     st.session_state.last_played_time = 0
                     st.rerun()
             else:
-                if st.button("⏹️ Stop & Save Session", type="primary", use_container_width=True):
+                if st.button("⏹️ Stop & Save", type="primary", use_container_width=True):
                     if st.session_state.cap is not None:
                         st.session_state.cap.release()
                         st.session_state.cap = None
-                    stop_all_sounds()
                     database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
                     st.session_state.session_active = False
                     st.session_state.session_id = None
-                    st.toast("Session completed and saved! Check the Analytics tab.", icon="💾")
+                    st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
                     st.rerun()
                     
         with col_btn2:
@@ -405,7 +467,6 @@ with tabs[0]:
                 if not st.session_state.session_paused:
                     if st.button("⏸️ Pause Session", use_container_width=True):
                         st.session_state.session_paused = True
-                        stop_all_sounds()
                         st.rerun()
                 else:
                     if st.button("▶️ Resume Session", use_container_width=True):
@@ -416,11 +477,11 @@ with tabs[0]:
         with col_btn3:
             if st.session_state.session_active:
                 if st.session_state.session_paused:
-                    st.warning("Status: Paused ⏸️")
+                    st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(234,179,8,0.15); border:1px solid #eab308; color:#facc15;">Session Paused</span></div>', unsafe_allow_html=True)
                 else:
-                    st.success("Status: Monitoring Live 🟢")
+                    st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#4ade80;">Monitoring Active</span></div>', unsafe_allow_html=True)
             else:
-                st.info("Status: Session Inactive ⚪")
+                st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(148,163,184,0.15); border:1px solid #64748b; color:#94a3b8;">Session Inactive</span></div>', unsafe_allow_html=True)
                 
         st.markdown("---")
 
@@ -586,19 +647,19 @@ with tabs[0]:
                 # Update Metrics HTML
                 metrics_html = f"""
                 <div style="display: flex; gap: 15px; justify-content: space-between; margin-bottom: 25px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
-                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Study Timer ⏱️</div>
+                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Timer ⏱️</div>
                         <div style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 5px;">{time_str}</div>
                     </div>
-                    <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
                         <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Focus Score 🎯</div>
                         <div style="font-size: 1.8rem; font-weight: 700; color: #34d399; margin-top: 5px;">{focus_pct}%</div>
                     </div>
-                    <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
-                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Alert Status 🚨</div>
+                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Status 🚨</div>
                         <div style="font-size: 1.6rem; font-weight: 700; color: {status_text_color}; margin-top: 5px;">{status_text}</div>
                     </div>
-                    <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
                         <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Distractions ⚠️</div>
                         <div style="font-size: 1.8rem; font-weight: 700; color: #f87171; margin-top: 5px;">{distractions_tally}</div>
                     </div>
@@ -615,31 +676,46 @@ with tabs[0]:
                 st.rerun()
                 
         elif st.session_state.session_active and st.session_state.session_paused:
-            st.info("Your local study session is paused. Press 'Resume Session' above to continue.")
+            st.info("Your study session is paused. Click 'Resume Session' above to continue.")
         else:
             st.markdown(
                 """
-                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 20px; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); margin-top: 15px;">
-                    <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.4rem;">Smart Study Co-pilot (Local OpenCV Version) 🚀</h3>
-                    <p style="color: #94a3b8; font-size: 0.95rem;">This mode connects directly to your webcam using standard OpenCV. It is highly optimized and guaranteed to launch without network or firewall errors.</p>
-                    <div style="margin-top: 15px;">
-                        <ol style="color: #94a3b8; padding-left: 20px; font-size: 0.9rem; line-height: 1.8;">
-                            <li>Press <b>▶️ Start Study Session</b> above.</li>
-                            <li>The camera feed will initialize locally without delay.</li>
-                            <li>Ensure you click <b>⏹️ Stop & Save Session</b> to capture your metrics when done.</li>
-                        </ol>
+                <div class="dashboard-banner">
+                    <div style="position: relative; z-index: 1;">
+                        <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;">Find your flow state. 🧠</h3>
+                        <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; max-width: 800px; margin-bottom: 25px;">
+                            Welcome to your quiet study space. This dashboard acts as a smart focus companion, keeping you alert and phone-free while you study.
+                        </p>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 1.6rem; margin-bottom: 10px;">👁️</div>
+                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Drowsiness Alarm</h5>
+                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Tracks eye closure duration and plays a gentle audio tone to keep you awake.</p>
+                            </div>
+                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📱</div>
+                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Phone Shield</h5>
+                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Detects when your mobile phone wanders into the frame and overlays warning cues.</p>
+                            </div>
+                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📈</div>
+                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Habit Analytics</h5>
+                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Saves session metrics to a secure local database, mapping your long-term focus habits.</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 30px; font-size: 0.88rem; color: #94a3b8;">
+                            💡 Configure your triggers on the sidebar and click <b>Start Session</b> above to begin.
+                        </div>
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-    # ------------------ DUAL MODE 2: CLOUD WEBRTC MODE ------------------
+    # ------------------ MODE 2: CLOUD WEBRTC STREAM ------------------
     elif camera_mode == "Cloud WebRTC (Browser)":
-        st.subheader("Cloud Stream (Browser WebRTC)")
+        st.subheader("Webcam Session Stream (WebRTC)")
         
-        # Omit rtc_configuration STUN servers on localhost to bypass Windows Firewall loopback blocks
-        # This fixes the "Connection taking longer than expected" timeout locally!
         ctx = webrtc_streamer(
             key="study-monitor-webrtc",
             mode=WebRtcMode.SENDRECV,
@@ -750,19 +826,19 @@ with tabs[0]:
             
             metrics_html = f"""
             <div style="display: flex; gap: 15px; justify-content: space-between; margin-top: 20px; margin-bottom: 25px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
-                    <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Study Timer ⏱️</div>
+                <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                    <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Timer ⏱️</div>
                     <div style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 5px;">{time_str}</div>
                 </div>
-                <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+                <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
                     <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Focus Score 🎯</div>
                     <div style="font-size: 1.8rem; font-weight: 700; color: #34d399; margin-top: 5px;">{focus_pct}%</div>
                 </div>
-                <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
-                    <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Alert Status 🚨</div>
+                <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                    <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Status 🚨</div>
                     <div style="font-size: 1.6rem; font-weight: 700; color: {status_text_color}; margin-top: 5px;">{status_text}</div>
                 </div>
-                <div style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 15px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+                <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
                     <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Distractions ⚠️</div>
                     <div style="font-size: 1.8rem; font-weight: 700; color: #f87171; margin-top: 5px;">{distractions_tally}</div>
                 </div>
@@ -777,30 +853,44 @@ with tabs[0]:
             if st.session_state.session_id is not None:
                 database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
                 st.session_state.session_id = None
-                st.toast("Session completed and saved!", icon="💾")
+                st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
                 st.rerun()
                 
             st.markdown(
                 """
-                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 20px; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); margin-top: 15px;">
-                    <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.4rem;">Smart Study Co-pilot (WebRTC Cloud Version) 🚀</h3>
-                    <p style="color: #94a3b8; font-size: 0.95rem;">This tool runs entirely inside your browser, making it fully compatible with cloud deployments like Streamlit Share!</p>
-                    <div style="margin-top: 20px;">
-                        <h5 style="color: #cbd5e1; font-weight: 600; margin-bottom: 8px;">How to start:</h5>
-                        <ol style="color: #94a3b8; padding-left: 20px; font-size: 0.9rem; line-height: 1.8;">
-                            <li>Tune your distraction thresholds in the left Configuration Panel.</li>
-                            <li>Click <b>Start</b> on the webcam component above.</li>
-                            <li>Allow camera permissions in your browser.</li>
-                            <li>The system will start monitoring your face mesh, eye closure, and phone usage.</li>
-                            <li>Click <b>Stop</b> on the webcam component to complete and save the session.</li>
-                        </ol>
+                <div class="dashboard-banner">
+                    <div style="position: relative; z-index: 1;">
+                        <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;">Find your flow state. 🧠</h3>
+                        <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; max-width: 800px; margin-bottom: 25px;">
+                            Welcome to your quiet study space. This dashboard acts as a smart focus companion, keeping you alert and phone-free while you study.
+                        </p>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 1.6rem; margin-bottom: 10px;">👁️</div>
+                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Drowsiness Alarm</h5>
+                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Tracks eye closure duration and plays a gentle audio tone to keep you awake.</p>
+                            </div>
+                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📱</div>
+                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Phone Shield</h5>
+                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Detects when your mobile phone wanders into the frame and overlays warning cues.</p>
+                            </div>
+                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📈</div>
+                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Habit Analytics</h5>
+                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Saves session metrics to a secure local database, mapping your long-term focus habits.</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 30px; font-size: 0.88rem; color: #94a3b8;">
+                            💡 Configure your triggers on the sidebar and click <b>Start</b> on the camera component above to begin.
+                        </div>
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-# ----- TAB 2: FOCUS ANALYTICS -----
+# ----- TAB 2: ANALYTICS -----
 with tabs[1]:
     st.subheader("Concentration & Productivity Reports")
     
@@ -808,7 +898,7 @@ with tabs[1]:
     df_sessions = get_data("SELECT * FROM sessions")
     
     if df_sessions.empty:
-        st.info("No study sessions logged yet. Complete at least one study session in the Live Monitor tab to see analytics!")
+        st.info("Your focus metrics will appear here once you complete a study session. Head over to the Focus Space tab to start your first session! 🚀")
     else:
         total_sessions = len(df_sessions)
         df_sessions['start_time'] = pd.to_datetime(df_sessions['start_time'])
@@ -828,7 +918,7 @@ with tabs[1]:
             f"""
             <div style="display: flex; gap: 20px; justify-content: space-between; margin-bottom: 30px; flex-wrap: wrap;">
                 <div class="metric-card-wrapper" style="flex: 1; min-width: 200px;">
-                    <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Total Sessions 📅</div>
+                    <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Total Sessions logged 📅</div>
                     <div style="font-size: 2.2rem; font-weight: 700; color: #3b82f6; margin-top: 5px;">{total_sessions}</div>
                 </div>
                 <div class="metric-card-wrapper" style="flex: 1; min-width: 200px;">
@@ -929,9 +1019,9 @@ with tabs[1]:
             ax.grid(axis='y', linestyle='--', alpha=0.15, color='#cbd5e1')
             st.pyplot(fig)
 
-# ----- TAB 3: SESSION HISTORY LOG -----
+# ----- TAB 3: HISTORY -----
 with tabs[2]:
-    st.subheader("Study Sessions Log")
+    st.subheader("Session History Log 📋")
     df_sessions = get_data("SELECT * FROM sessions")
     if df_sessions.empty:
         st.info("No study sessions logged yet.")
