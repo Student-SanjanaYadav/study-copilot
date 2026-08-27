@@ -1,6 +1,6 @@
+streamlit
 streamlit-webrtc
 av
-customtkinter
 opencv-python-headless
 cvzone
 ultralytics

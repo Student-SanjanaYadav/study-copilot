@@ -136,7 +136,9 @@ audio_phone_b64 = get_audio_base64("paudio.mp3")
 # Cache model resources at module level to prevent reloading on every Streamlit rerun
 @st.cache_resource
 def load_yolo_model():
-    return YOLO("yolov8n.pt")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(base_dir, "yolov8n.pt")
+    return YOLO(model_path)
 
 @st.cache_resource
 def load_face_detector():
