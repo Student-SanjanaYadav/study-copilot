@@ -236,51 +236,71 @@ class StudyVideoProcessor(VideoProcessorBase):
         self.frame_counter = 0
         self.last_phone_detected = False
         self.last_phone_boxes = []
+        self.last_faces = None
+        self.last_is_sleepy = False
+        self.last_is_face_covered = False
+        self.last_ratio = 15.0
         
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         img = cv2.flip(img, 1)
+        self.frame_counter += 1
         
-        # 1. Face Mesh Sleep & Cover detection
-        img, faces = self.face_detector.findFaceMesh(img, draw=False)
-        is_sleepy = False
-        is_face_covered = False
-        
-        LEFT_EYE_TOP = 159
-        LEFT_EYE_BOTTOM = 145
-        FACE_LEFT = 130
-        FACE_RIGHT = 243
-        
-        if faces:
-            self.covered_frames = 0
-            face = faces[0]
-            try:
-                eye_dist, _ = self.face_detector.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
-                face_dist, _ = self.face_detector.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
-                ratio = (eye_dist / face_dist) * 100
-            except Exception:
-                ratio = 15.0
-                
-            if ratio < self.eye_ratio_threshold:
-                self.closed_frames += 1
+        # 1. Face Mesh Sleep & Cover detection (Only run once every 2 frames)
+        if self.frame_counter % 2 == 0 or self.last_faces is None:
+            _, faces = self.face_detector.findFaceMesh(img, draw=False)
+            is_sleepy = False
+            is_face_covered = False
+            ratio = 15.0
+            
+            LEFT_EYE_TOP = 159
+            LEFT_EYE_BOTTOM = 145
+            FACE_LEFT = 130
+            FACE_RIGHT = 243
+            
+            if faces:
+                self.covered_frames = 0
+                face = faces[0]
+                try:
+                    eye_dist, _ = self.face_detector.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
+                    face_dist, _ = self.face_detector.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
+                    ratio = (eye_dist / face_dist) * 100
+                except Exception:
+                    ratio = 15.0
+                    
+                if ratio < self.eye_ratio_threshold:
+                    self.closed_frames += 1
+                else:
+                    self.closed_frames = 0
+                    
+                if self.closed_frames >= self.sleep_threshold:
+                    is_sleepy = True
             else:
                 self.closed_frames = 0
-                
-            if self.closed_frames >= self.sleep_threshold:
-                is_sleepy = True
-                
-            # Draw facial dots
+                self.covered_frames += 1
+                if self.covered_frames >= 20:
+                    is_face_covered = True
+                    
+            self.last_faces = faces
+            self.last_is_sleepy = is_sleepy
+            self.last_is_face_covered = is_face_covered
+            self.last_ratio = ratio
+            
+        faces = self.last_faces
+        is_sleepy = self.last_is_sleepy
+        is_face_covered = self.last_is_face_covered
+        ratio = self.last_ratio
+        
+        # Draw face features on all frames
+        if faces:
+            face = faces[0]
+            LEFT_EYE_TOP = 159
+            LEFT_EYE_BOTTOM = 145
             cv2.circle(img, face[LEFT_EYE_TOP], 3, (34, 197, 94), -1)
             cv2.circle(img, face[LEFT_EYE_BOTTOM], 3, (34, 197, 94), -1)
             cvzone.putTextRect(img, f"Eye Ratio: {int(ratio)}", (30, 40), scale=1, thickness=1, colorR=(15, 23, 42))
-        else:
-            self.closed_frames = 0
-            self.covered_frames += 1
-            if self.covered_frames >= 20:
-                is_face_covered = True
-                
+            
         # 2. YOLO Phone Detection (Only run once every 6 frames for performance)
-        self.frame_counter += 1
         if self.frame_counter % 6 == 0 or self.frame_counter < 10:
             results = self.phone_detector.predict(img, stream=True, verbose=False)
             phone_detected = False
@@ -505,42 +525,68 @@ with tabs[0]:
                     
                 img = cv2.flip(img, 1)
                 
-                # 1. Face Mesh Sleep & Cover detection
-                img, faces = face_mesh.findFaceMesh(img, draw=False)
-                is_sleepy = False
-                is_face_covered = False
-                
-                LEFT_EYE_TOP = 159
-                LEFT_EYE_BOTTOM = 145
-                FACE_LEFT = 130
-                FACE_RIGHT = 243
-                
-                if faces:
-                    st.session_state.covered_frames = 0
-                    face = faces[0]
-                    try:
-                        eye_dist, _ = face_mesh.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
-                        face_dist, _ = face_mesh.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
-                        ratio = (eye_dist / face_dist) * 100
-                    except Exception:
-                        ratio = 15.0
-                        
-                    if ratio < eye_ratio_threshold:
-                        st.session_state.closed_frames += 1
+                # 1. Face Mesh Sleep & Cover detection (Only run once every 2 frames)
+                if 'last_faces' not in st.session_state:
+                    st.session_state.last_faces = None
+                if 'last_is_sleepy' not in st.session_state:
+                    st.session_state.last_is_sleepy = False
+                if 'last_is_face_covered' not in st.session_state:
+                    st.session_state.last_is_face_covered = False
+                if 'last_ratio' not in st.session_state:
+                    st.session_state.last_ratio = 15.0
+
+                if frame_idx % 2 == 0 or st.session_state.last_faces is None:
+                    _, faces = face_mesh.findFaceMesh(img, draw=False)
+                    is_sleepy = False
+                    is_face_covered = False
+                    ratio = 15.0
+                    
+                    LEFT_EYE_TOP = 159
+                    LEFT_EYE_BOTTOM = 145
+                    FACE_LEFT = 130
+                    FACE_RIGHT = 243
+                    
+                    if faces:
+                        st.session_state.covered_frames = 0
+                        face = faces[0]
+                        try:
+                            eye_dist, _ = face_mesh.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
+                            face_dist, _ = face_mesh.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
+                            ratio = (eye_dist / face_dist) * 100
+                        except Exception:
+                            ratio = 15.0
+                            
+                        if ratio < eye_ratio_threshold:
+                            st.session_state.closed_frames += 1
+                        else:
+                            st.session_state.closed_frames = 0
+                            
+                        if st.session_state.closed_frames >= sleep_threshold_frames:
+                            is_sleepy = True
                     else:
                         st.session_state.closed_frames = 0
-                        
-                    if st.session_state.closed_frames >= sleep_threshold_frames:
-                        is_sleepy = True
-                        
+                        st.session_state.covered_frames += 1
+                        if st.session_state.covered_frames >= 20:
+                            is_face_covered = True
+                            
+                    st.session_state.last_faces = faces
+                    st.session_state.last_is_sleepy = is_sleepy
+                    st.session_state.last_is_face_covered = is_face_covered
+                    st.session_state.last_ratio = ratio
+                    
+                faces = st.session_state.last_faces
+                is_sleepy = st.session_state.last_is_sleepy
+                is_face_covered = st.session_state.last_is_face_covered
+                ratio = st.session_state.last_ratio
+                
+                # Draw facial dots on all frames
+                if faces:
+                    face = faces[0]
+                    LEFT_EYE_TOP = 159
+                    LEFT_EYE_BOTTOM = 145
                     cv2.circle(img, face[LEFT_EYE_TOP], 3, (34, 197, 94), -1)
                     cv2.circle(img, face[LEFT_EYE_BOTTOM], 3, (34, 197, 94), -1)
                     cvzone.putTextRect(img, f"Eye Aspect Ratio: {int(ratio)}", (30, 40), scale=1, thickness=1, colorR=(15, 23, 42))
-                else:
-                    st.session_state.closed_frames = 0
-                    st.session_state.covered_frames += 1
-                    if st.session_state.covered_frames >= 20:
-                        is_face_covered = True
                         
                 # 2. YOLO Phone Detection (Only run once every 6 frames)
                 if 'last_phone_detected' not in st.session_state:
@@ -670,7 +716,7 @@ with tabs[0]:
                 # Render Image
                 img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 video_feed_ph.image(img_rgb, channels="RGB", use_container_width=True)
-                time.sleep(0.03)
+                time.sleep(0.01)
                 
             if st.session_state.session_active and not st.session_state.session_paused:
                 st.rerun()
