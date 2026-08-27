@@ -170,6 +170,9 @@ class StudyVideoProcessor(VideoProcessorBase):
         # Detection frame counters
         self.closed_frames = 0
         self.covered_frames = 0
+        self.frame_counter = 0
+        self.last_phone_detected = False
+        self.last_phone_boxes = []
         
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
@@ -213,22 +216,32 @@ class StudyVideoProcessor(VideoProcessorBase):
             if self.covered_frames >= 20:
                 is_face_covered = True
                 
-        # 2. YOLO Phone Detection
-        results = self.phone_detector.predict(img, stream=True, verbose=False)
-        phone_detected = False
-        classNames = self.phone_detector.names
-        
-        for r in results:
-            boxes = r.boxes
-            for box in boxes:
-                cls_id = int(box.cls[0])
-                conf = float(box.conf[0])
-                
-                if classNames[cls_id] == "cell phone" and conf > self.phone_conf_threshold:
-                    phone_detected = True
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (236, 72, 153), 2)
-                    cvzone.putTextRect(img, f"Phone: {int(conf*100)}%", (x1, max(y1 - 10, 30)), scale=1, thickness=1, colorR=(236, 72, 153))
+        # 2. YOLO Phone Detection (Only run once every 6 frames for performance)
+        self.frame_counter += 1
+        if self.frame_counter % 6 == 0 or self.frame_counter < 10:
+            results = self.phone_detector.predict(img, stream=True, verbose=False)
+            phone_detected = False
+            classNames = self.phone_detector.names
+            phone_boxes = []
+            
+            for r in results:
+                boxes = r.boxes
+                for box in boxes:
+                    cls_id = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    
+                    if classNames[cls_id] == "cell phone" and conf > self.phone_conf_threshold:
+                        phone_detected = True
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+                        phone_boxes.append((x1, y1, x2, y2, int(conf*100)))
+            
+            self.last_phone_detected = phone_detected
+            self.last_phone_boxes = phone_boxes
+            
+        phone_detected = self.last_phone_detected
+        for (x1, y1, x2, y2, conf_pct) in self.last_phone_boxes:
+            cv2.rectangle(img, (x1, y1), (x2, y2), (236, 72, 153), 2)
+            cvzone.putTextRect(img, f"Phone: {conf_pct}%", (x1, max(y1 - 10, 30)), scale=1, thickness=1, colorR=(236, 72, 153))
                     
         # Update thread-safe status fields
         self.is_sleepy = is_sleepy
@@ -420,7 +433,7 @@ with tabs[0]:
             video_feed_ph = st.empty()
             
             # 30-frame in-place loop
-            for _ in range(30):
+            for frame_idx in range(30):
                 if not st.session_state.session_active or st.session_state.session_paused:
                     break
                     
@@ -468,22 +481,36 @@ with tabs[0]:
                     if st.session_state.covered_frames >= 20:
                         is_face_covered = True
                         
-                # 2. YOLO Phone Detection
-                results = yolo_model.predict(img, stream=True, verbose=False)
-                phone_detected = False
-                classNames = yolo_model.names
-                
-                for r in results:
-                    boxes = r.boxes
-                    for box in boxes:
-                        cls_id = int(box.cls[0])
-                        conf = float(box.conf[0])
-                        
-                        if classNames[cls_id] == "cell phone" and conf > phone_conf_threshold:
-                            phone_detected = True
-                            x1, y1, x2, y2 = map(int, box.xyxy[0])
-                            cv2.rectangle(img, (x1, y1), (x2, y2), (236, 72, 153), 2)
-                            cvzone.putTextRect(img, f"Phone: {int(conf*100)}%", (x1, max(y1 - 10, 30)), scale=1, thickness=1, colorR=(236, 72, 153))
+                # 2. YOLO Phone Detection (Only run once every 6 frames)
+                if 'last_phone_detected' not in st.session_state:
+                    st.session_state.last_phone_detected = False
+                if 'last_phone_boxes' not in st.session_state:
+                    st.session_state.last_phone_boxes = []
+                    
+                if frame_idx % 6 == 0:
+                    results = yolo_model.predict(img, stream=True, verbose=False)
+                    phone_detected = False
+                    classNames = yolo_model.names
+                    phone_boxes = []
+                    
+                    for r in results:
+                        boxes = r.boxes
+                        for box in boxes:
+                            cls_id = int(box.cls[0])
+                            conf = float(box.conf[0])
+                            
+                            if classNames[cls_id] == "cell phone" and conf > phone_conf_threshold:
+                                phone_detected = True
+                                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                                phone_boxes.append((x1, y1, x2, y2, int(conf*100)))
+                                
+                    st.session_state.last_phone_detected = phone_detected
+                    st.session_state.last_phone_boxes = phone_boxes
+                    
+                phone_detected = st.session_state.last_phone_detected
+                for (x1, y1, x2, y2, conf_pct) in st.session_state.last_phone_boxes:
+                    cv2.rectangle(img, (x1, y1), (x2, y2), (236, 72, 153), 2)
+                    cvzone.putTextRect(img, f"Phone: {conf_pct}%", (x1, max(y1 - 10, 30)), scale=1, thickness=1, colorR=(236, 72, 153))
                             
                 # 3. DB Logging
                 if is_face_covered and not st.session_state.was_covered:
