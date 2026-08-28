@@ -502,6 +502,12 @@ if camera_mode == "Local Webcam (OpenCV)":
     else:
         active_container = st.container()
         with active_container:
+            if st.session_state.session_paused:
+                st.info("Your study session is paused. Click 'Resume Session' to continue.")
+            else:
+                video_feed_ph = st.empty()
+                audio_ph = st.empty()
+                
             col_ctrl, col_status = st.columns([2, 1])
             with col_ctrl:
                 btn_col1, btn_col2 = st.columns(2)
@@ -533,12 +539,6 @@ if camera_mode == "Local Webcam (OpenCV)":
                     st.markdown('<div style="text-align:center; margin-top: 5px;"><span class="status-badge" style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#4ade80;">Monitoring Active</span></div>', unsafe_allow_html=True)
                     
             metric_ph = st.empty()
-            
-            if st.session_state.session_paused:
-                st.info("Your study session is paused. Click 'Resume Session' to continue.")
-            else:
-                video_feed_ph = st.empty()
-                audio_ph = st.empty()
             
         if not st.session_state.session_paused:
             if st.session_state.cap is None:
@@ -769,16 +769,16 @@ if camera_mode == "Local Webcam (OpenCV)":
 elif camera_mode == "Cloud WebRTC (Browser)":
     st.subheader("Webcam Session Stream (WebRTC)")
     
-    # WebRTC metrics are displayed in a compact horizontal bar
-    metric_ph = st.empty()
-    audio_ph = st.empty()
-    
     ctx = webrtc_streamer(
         key="study-monitor-webrtc",
         mode=WebRtcMode.SENDRECV,
         video_processor_factory=lambda: StudyVideoProcessor(yolo_model),
         media_stream_constraints={"video": True, "audio": False},
     )
+    
+    # WebRTC metrics are displayed in a compact horizontal bar below the camera
+    metric_ph = st.empty()
+    audio_ph = st.empty()
     
     if not ctx.state.playing:
         st.markdown(
