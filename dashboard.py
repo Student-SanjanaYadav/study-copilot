@@ -515,8 +515,8 @@ with tabs[0]:
             audio_ph = st.empty()
             
             failed_reads = 0
-            # 30-frame in-place loop
-            for frame_idx in range(30):
+            # 100-frame in-place loop to reduce Streamlit rerun overhead stutters
+            for frame_idx in range(100):
                 if not st.session_state.session_active or st.session_state.session_paused:
                     break
                     
@@ -524,7 +524,7 @@ with tabs[0]:
                 if not success:
                     failed_reads += 1
                     time.sleep(0.1)
-                    if failed_reads > 10:
+                    if failed_reads > 40:
                         st.session_state.session_active = False
                         if st.session_state.cap is not None:
                             st.session_state.cap.release()
