@@ -653,16 +653,16 @@ with tabs[0]:
                 distracted = False
                 now = time.time()
                 
-                if is_face_covered:
-                    status_text = "FACE HIDDEN!"
-                    status_text_color = "#ef4444"
-                    cvzone.putTextRect(img, "DONT COVER YOUR FACE!", (50, 100), scale=2, thickness=3, colorR=(239, 68, 68), colorT=(255, 255, 255))
+                if phone_detected:
+                    status_text = "PHONE DETECTED!"
+                    status_text_color = "#f97316"
+                    cvzone.putTextRect(img, "PUT THE PHONE AWAY!", (50, 100), scale=2, thickness=3, colorR=(249, 115, 22), colorT=(255, 255, 255))
                     distracted = True
-                    if enable_facehide and not mute_audio and audio_facehide_b64:
-                        if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
-                            st.session_state.current_playing = "facehide"
+                    if enable_phone and not mute_audio and audio_phone_b64:
+                        if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
+                            st.session_state.current_playing = "phone"
                             st.session_state.last_played_time = now
-                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
+                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
                 elif is_sleepy:
                     status_text = "SLEEPING!"
                     status_text_color = "#ef4444"
@@ -673,16 +673,16 @@ with tabs[0]:
                             st.session_state.current_playing = "sleep"
                             st.session_state.last_played_time = now
                             audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
-                elif phone_detected:
-                    status_text = "PHONE DETECTED!"
-                    status_text_color = "#f97316"
-                    cvzone.putTextRect(img, "PUT THE PHONE AWAY!", (50, 100), scale=2, thickness=3, colorR=(249, 115, 22), colorT=(255, 255, 255))
+                elif is_face_covered:
+                    status_text = "FACE HIDDEN!"
+                    status_text_color = "#ef4444"
+                    cvzone.putTextRect(img, "DONT COVER YOUR FACE!", (50, 100), scale=2, thickness=3, colorR=(239, 68, 68), colorT=(255, 255, 255))
                     distracted = True
-                    if enable_phone and not mute_audio and audio_phone_b64:
-                        if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
-                            st.session_state.current_playing = "phone"
+                    if enable_facehide and not mute_audio and audio_facehide_b64:
+                        if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
+                            st.session_state.current_playing = "facehide"
                             st.session_state.last_played_time = now
-                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
+                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
                             
                 if not distracted:
                     st.session_state.current_playing = None
@@ -845,15 +845,15 @@ with tabs[0]:
             status_text_color = "#34d399"
             distracted = False
             
-            if is_face_covered:
-                status_text = "FACE HIDDEN!"
-                status_text_color = "#ef4444"
+            if phone_detected:
+                status_text = "PHONE DETECTED!"
+                status_text_color = "#f97316"
                 distracted = True
-                if enable_facehide and not mute_audio and audio_facehide_b64:
-                    if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
-                        st.session_state.current_playing = "facehide"
+                if enable_phone and not mute_audio and audio_phone_b64:
+                    if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
+                        st.session_state.current_playing = "phone"
                         st.session_state.last_played_time = now
-                        audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
+                        audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
             elif is_sleepy:
                 status_text = "SLEEPING!"
                 status_text_color = "#ef4444"
@@ -863,15 +863,15 @@ with tabs[0]:
                         st.session_state.current_playing = "sleep"
                         st.session_state.last_played_time = now
                         audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
-            elif phone_detected:
-                status_text = "PHONE DETECTED!"
-                status_text_color = "#f97316"
+            elif is_face_covered:
+                status_text = "FACE HIDDEN!"
+                status_text_color = "#ef4444"
                 distracted = True
-                if enable_phone and not mute_audio and audio_phone_b64:
-                    if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
-                        st.session_state.current_playing = "phone"
+                if enable_facehide and not mute_audio and audio_facehide_b64:
+                    if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
+                        st.session_state.current_playing = "facehide"
                         st.session_state.last_played_time = now
-                        audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
+                        audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
                         
             if not distracted:
                 st.session_state.current_playing = None
