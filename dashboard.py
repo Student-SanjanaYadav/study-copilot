@@ -507,7 +507,9 @@ with tabs[0]:
 
         if st.session_state.session_active and not st.session_state.session_paused:
             if st.session_state.cap is None:
-                st.session_state.cap = cv2.VideoCapture(0)
+                st.session_state.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                st.session_state.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                st.session_state.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 st.session_state.cap.read()
                 
             metric_ph = st.empty()
