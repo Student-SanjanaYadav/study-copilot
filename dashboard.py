@@ -500,44 +500,45 @@ if camera_mode == "Local Webcam (OpenCV)":
             unsafe_allow_html=True
         )
     else:
-        col_feed, col_controls = st.columns([2, 1])
-        
-        with col_feed:
+        active_container = st.container()
+        with active_container:
+            col_ctrl, col_status = st.columns([2, 1])
+            with col_ctrl:
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button("⏹️ Stop & Save", type="primary", use_container_width=True, key="local_stop_btn"):
+                        if st.session_state.cap is not None:
+                            st.session_state.cap.release()
+                            st.session_state.cap = None
+                        database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
+                        st.session_state.session_active = False
+                        st.session_state.session_id = None
+                        st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
+                        st.rerun()
+                with btn_col2:
+                    if not st.session_state.session_paused:
+                        if st.button("⏸️ Pause Session", use_container_width=True, key="local_pause_btn"):
+                            st.session_state.session_paused = True
+                            st.rerun()
+                    else:
+                        if st.button("▶️ Resume Session", use_container_width=True, key="local_resume_btn"):
+                            st.session_state.session_paused = False
+                            st.session_state.last_time = time.time()
+                            st.rerun()
+                            
+            with col_status:
+                if st.session_state.session_paused:
+                    st.markdown('<div style="text-align:center; margin-top: 5px;"><span class="status-badge" style="background:rgba(234,179,8,0.15); border:1px solid #eab308; color:#facc15;">Session Paused</span></div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="text-align:center; margin-top: 5px;"><span class="status-badge" style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#4ade80;">Monitoring Active</span></div>', unsafe_allow_html=True)
+                    
+            metric_ph = st.empty()
+            
             if st.session_state.session_paused:
-                st.info("Your study session is paused. Click 'Resume Session' on the right panel to continue.")
+                st.info("Your study session is paused. Click 'Resume Session' to continue.")
             else:
                 video_feed_ph = st.empty()
-                
-        with col_controls:
-            btn_col1, btn_col2 = st.columns(2)
-            with btn_col1:
-                if st.button("⏹️ Stop & Save", type="primary", use_container_width=True):
-                    if st.session_state.cap is not None:
-                        st.session_state.cap.release()
-                        st.session_state.cap = None
-                    database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
-                    st.session_state.session_active = False
-                    st.session_state.session_id = None
-                    st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
-                    st.rerun()
-            with btn_col2:
-                if not st.session_state.session_paused:
-                    if st.button("⏸️ Pause Session", use_container_width=True):
-                        st.session_state.session_paused = True
-                        st.rerun()
-                else:
-                    if st.button("▶️ Resume Session", use_container_width=True):
-                        st.session_state.session_paused = False
-                        st.session_state.last_time = time.time()
-                        st.rerun()
-                        
-            if st.session_state.session_paused:
-                st.markdown('<div style="text-align:center; margin-top: 10px;"><span class="status-badge" style="background:rgba(234,179,8,0.15); border:1px solid #eab308; color:#facc15;">Session Paused</span></div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="text-align:center; margin-top: 10px;"><span class="status-badge" style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#4ade80;">Monitoring Active</span></div>', unsafe_allow_html=True)
-                
-            metric_ph = st.empty()
-            audio_ph = st.empty()
+                audio_ph = st.empty()
             
         if not st.session_state.session_paused:
             if st.session_state.cap is None:
@@ -547,7 +548,7 @@ if camera_mode == "Local Webcam (OpenCV)":
                 st.session_state.cap.read()
                 
             failed_reads = 0
-            for frame_idx in range(100):
+            for frame_idx in range(30):
                 if not st.session_state.session_active or st.session_state.session_paused:
                     break
                     
@@ -733,24 +734,24 @@ if camera_mode == "Local Webcam (OpenCV)":
                 focus_pct = int((st.session_state.focus_sec / st.session_state.total_sec) * 100) if st.session_state.total_sec > 0 else 100
                 distractions_tally = st.session_state.sleep_count + st.session_state.phone_count + st.session_state.cover_count
                 
-                # Update Metrics HTML in column stack
+                # Update Metrics HTML in horizontal full-width stack
                 metrics_html = f"""
-                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
-                    <div class="metric-card-wrapper" style="padding: 12px !important;">
-                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Timer ⏱️</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 2px;">{time_str}</div>
+                <div style="display: flex; gap: 15px; justify-content: space-between; margin-top: 10px; margin-bottom: 15px; flex-wrap: nowrap;">
+                    <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Timer ⏱️</div>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: #38bdf8; font-family: monospace;">{time_str}</div>
                     </div>
-                    <div class="metric-card-wrapper" style="padding: 12px !important;">
-                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Focus Score 🎯</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: #34d399; margin-top: 2px;">{focus_pct}%</div>
+                    <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Focus Score 🎯</div>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: #34d399;">{focus_pct}%</div>
                     </div>
-                    <div class="metric-card-wrapper" style="padding: 12px !important;">
-                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Status 🚨</div>
-                        <div style="font-size: 1.4rem; font-weight: 700; color: {status_text_color}; margin-top: 2px;">{status_text}</div>
+                    <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Status 🚨</div>
+                        <div style="font-size: 1.3rem; font-weight: 700; color: {status_text_color};">{status_text}</div>
                     </div>
-                    <div class="metric-card-wrapper" style="padding: 12px !important;">
-                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Distractions ⚠️</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: #f87171; margin-top: 2px;">{distractions_tally}</div>
+                    <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Distractions ⚠️</div>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: #f87171;">{distractions_tally}</div>
                     </div>
                 </div>
                 """
@@ -768,49 +769,32 @@ if camera_mode == "Local Webcam (OpenCV)":
 elif camera_mode == "Cloud WebRTC (Browser)":
     st.subheader("Webcam Session Stream (WebRTC)")
     
-    col_feed, col_controls = st.columns([2, 1])
+    # WebRTC metrics are displayed in a compact horizontal bar
+    metric_ph = st.empty()
+    audio_ph = st.empty()
     
-    with col_feed:
-        ctx = webrtc_streamer(
-            key="study-monitor-webrtc",
-            mode=WebRtcMode.SENDRECV,
-            video_processor_factory=lambda: StudyVideoProcessor(yolo_model),
-            media_stream_constraints={"video": True, "audio": False},
+    ctx = webrtc_streamer(
+        key="study-monitor-webrtc",
+        mode=WebRtcMode.SENDRECV,
+        video_processor_factory=lambda: StudyVideoProcessor(yolo_model),
+        media_stream_constraints={"video": True, "audio": False},
+    )
+    
+    if not ctx.state.playing:
+        st.markdown(
+            """
+            <div class="dashboard-banner">
+                <div style="position: relative; z-index: 1;">
+                    <h4 style="margin-top: 0; color: #3b82f6; font-size: 1.1rem; font-weight: 700;">WebRTC Session Controls</h4>
+                    <p style="color: #cbd5e1; font-size: 0.85rem; line-height: 1.5; margin: 0;">
+                        Click the <b>Start</b> button on the camera widget to activate the browser webcam connection. 
+                    </p>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
         
-    with col_controls:
-        metric_ph = st.empty()
-        audio_ph = st.empty()
-        
-        if not ctx.state.playing:
-            st.markdown(
-                """
-                <div class="dashboard-banner" style="padding: 20px !important;">
-                    <div style="position: relative; z-index: 1;">
-                        <h4 style="margin-top: 0; color: #3b82f6; font-size: 1.1rem; font-weight: 700;">WebRTC Session Controls</h4>
-                        <p style="color: #cbd5e1; font-size: 0.85rem; line-height: 1.5; margin: 0;">
-                            Click the <b>Start</b> button on the camera widget to activate the browser webcam connection. 
-                        </p>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            st.markdown(
-                """
-                <div class="dashboard-banner" style="margin-top: 15px; padding: 25px !important;">
-                    <div style="position: relative; z-index: 1;">
-                        <h3 style="margin-top: 0; color: #a855f7; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em;">Cloud WebRTC Info 🧠</h3>
-                        <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin-bottom: 0px;">
-                            Tracks your study sessions in the browser using live AI analysis. Ideal for remote server hosting like Streamlit Community Cloud.
-                        </p>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
     if ctx.state.playing:
         # Sync sidebar settings dynamically to WebRTC thread
         if ctx.video_processor:
@@ -904,7 +888,7 @@ elif camera_mode == "Cloud WebRTC (Browser)":
             st.session_state.current_playing = None
             audio_ph.empty()
             
-        # Stats Panel Display (Vertical column stack)
+        # Stats Panel Display (Horizontal layout)
         tot_h = st.session_state.total_sec // 3600
         tot_m = (st.session_state.total_sec % 3600) // 60
         tot_s = st.session_state.total_sec % 60
@@ -914,22 +898,22 @@ elif camera_mode == "Cloud WebRTC (Browser)":
         distractions_tally = st.session_state.sleep_count + st.session_state.phone_count + st.session_state.cover_count
         
         metrics_html = f"""
-        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
-            <div class="metric-card-wrapper" style="padding: 12px !important;">
-                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Timer ⏱️</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 2px;">{time_str}</div>
+        <div style="display: flex; gap: 15px; justify-content: space-between; margin-top: 10px; margin-bottom: 15px; flex-wrap: nowrap;">
+            <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Timer ⏱️</div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: #38bdf8; font-family: monospace;">{time_str}</div>
             </div>
-            <div class="metric-card-wrapper" style="padding: 12px !important;">
-                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Focus Score 🎯</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #34d399; margin-top: 2px;">{focus_pct}%</div>
+            <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Focus Score 🎯</div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: #34d399;">{focus_pct}%</div>
             </div>
-            <div class="metric-card-wrapper" style="padding: 12px !important;">
-                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Status 🚨</div>
-                <div style="font-size: 1.4rem; font-weight: 700; color: {status_text_color}; margin-top: 2px;">{status_text}</div>
+            <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Status 🚨</div>
+                <div style="font-size: 1.3rem; font-weight: 700; color: {status_text_color};">{status_text}</div>
             </div>
-            <div class="metric-card-wrapper" style="padding: 12px !important;">
-                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Distractions ⚠️</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #f87171; margin-top: 2px;">{distractions_tally}</div>
+            <div class="metric-card-wrapper" style="flex: 1; padding: 10px !important; text-align: center;">
+                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Distractions ⚠️</div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: #f87171;">{distractions_tally}</div>
             </div>
         </div>
         """
