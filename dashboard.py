@@ -203,18 +203,13 @@ def load_yolo_model():
     model_path = os.path.join(base_dir, "yolov8n.pt")
     return YOLO(model_path)
 
-@st.cache_resource
-def load_face_detector():
-    return FaceMeshDetector(maxFaces=1)
-
 yolo_model = load_yolo_model()
-face_mesh = load_face_detector()
 
 # WebRTC Video Processor (runs on background thread, updates thread-safe variables)
 class StudyVideoProcessor(VideoProcessorBase):
-    def __init__(self, yolo_model, face_mesh):
+    def __init__(self, yolo_model):
         self.phone_detector = yolo_model
-        self.face_detector = face_mesh
+        self.face_detector = FaceMeshDetector(maxFaces=1)
         
         # User thresholds (synced dynamically from sidebar)
         self.eye_ratio_threshold = 11.0
@@ -457,6 +452,7 @@ with tabs[0]:
                     st.session_state.session_id = database.start_session()
                     st.session_state.session_active = True
                     st.session_state.session_paused = False
+                    st.session_state.face_mesh = FaceMeshDetector(maxFaces=1)
                     st.session_state.total_sec = 0
                     st.session_state.focus_sec = 0
                     st.session_state.sleep_count = 0
@@ -549,7 +545,7 @@ with tabs[0]:
                     st.session_state.last_ratio = 15.0
 
                 if frame_idx % 2 == 0 or st.session_state.last_faces is None:
-                    _, faces = face_mesh.findFaceMesh(img, draw=False)
+                    _, faces = st.session_state.face_mesh.findFaceMesh(img, draw=False)
                     is_sleepy = False
                     is_face_covered = False
                     ratio = 15.0
@@ -563,8 +559,8 @@ with tabs[0]:
                         st.session_state.covered_frames = 0
                         face = faces[0]
                         try:
-                            eye_dist, _ = face_mesh.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
-                            face_dist, _ = face_mesh.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
+                            eye_dist, _ = st.session_state.face_mesh.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
+                            face_dist, _ = st.session_state.face_mesh.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
                             ratio = (eye_dist / face_dist) * 100
                         except Exception:
                             ratio = 15.0
@@ -779,7 +775,7 @@ with tabs[0]:
         ctx = webrtc_streamer(
             key="study-monitor-webrtc",
             mode=WebRtcMode.SENDRECV,
-            video_processor_factory=lambda: StudyVideoProcessor(yolo_model, face_mesh),
+            video_processor_factory=lambda: StudyVideoProcessor(yolo_model),
             media_stream_constraints={"video": True, "audio": False},
         )
         
