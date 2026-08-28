@@ -436,371 +436,21 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-tabs = st.tabs(["🎥 Focus Space", "📊 Analytics", "📋 History"])
+# 🎥 Focus Space (Hero Component)
+st.markdown('<h3 style="color: #3b82f6; font-size: 1.5rem; font-weight: 700; margin-top: 10px; margin-bottom: 15px;">Focus Space 🎥</h3>', unsafe_allow_html=True)
 
-# ----- TAB 1: FOCUS SPACE -----
-with tabs[0]:
+# ------------------ MODE 1: LOCAL OPENCV STREAM ------------------
+if camera_mode == "Local Webcam (OpenCV)":
+    st.subheader("Webcam Session Stream")
     
-    # ------------------ MODE 1: LOCAL OPENCV STREAM ------------------
-    if camera_mode == "Local Webcam (OpenCV)":
-        st.subheader("Webcam Session Stream")
-        
-        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
-        with col_btn1:
-            if not st.session_state.session_active:
-                if st.button("▶️ Start Session", type="primary", use_container_width=True):
-                    st.session_state.session_id = database.start_session()
-                    st.session_state.session_active = True
-                    st.session_state.session_paused = False
-                    st.session_state.face_mesh = FaceMeshDetector(maxFaces=1)
-                    st.session_state.total_sec = 0
-                    st.session_state.focus_sec = 0
-                    st.session_state.sleep_count = 0
-                    st.session_state.phone_count = 0
-                    st.session_state.cover_count = 0
-                    st.session_state.was_sleepy = False
-                    st.session_state.was_phone = False
-                    st.session_state.was_covered = False
-                    st.session_state.current_playing = None
-                    st.session_state.last_time = time.time()
-                    st.session_state.covered_frames = 0
-                    st.session_state.closed_frames = 0
-                    st.session_state.last_played_time = 0
-                    st.rerun()
-            else:
-                if st.button("⏹️ Stop & Save", type="primary", use_container_width=True):
-                    if st.session_state.cap is not None:
-                        st.session_state.cap.release()
-                        st.session_state.cap = None
-                    database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
-                    st.session_state.session_active = False
-                    st.session_state.session_id = None
-                    st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
-                    st.rerun()
-                    
-        with col_btn2:
-            if st.session_state.session_active:
-                if not st.session_state.session_paused:
-                    if st.button("⏸️ Pause Session", use_container_width=True):
-                        st.session_state.session_paused = True
-                        st.rerun()
-                else:
-                    if st.button("▶️ Resume Session", use_container_width=True):
-                        st.session_state.session_paused = False
-                        st.session_state.last_time = time.time()
-                        st.rerun()
-                        
-        with col_btn3:
-            if st.session_state.session_active:
-                if st.session_state.session_paused:
-                    st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(234,179,8,0.15); border:1px solid #eab308; color:#facc15;">Session Paused</span></div>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#4ade80;">Monitoring Active</span></div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(148,163,184,0.15); border:1px solid #64748b; color:#94a3b8;">Session Inactive</span></div>', unsafe_allow_html=True)
-                
-        st.markdown("---")
-
-        if st.session_state.session_active and not st.session_state.session_paused:
-            if st.session_state.cap is None:
-                st.session_state.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-                st.session_state.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                st.session_state.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                st.session_state.cap.read()
-                
-            metric_ph = st.empty()
-            video_feed_ph = st.empty()
-            audio_ph = st.empty()
-            
-            failed_reads = 0
-            # 100-frame in-place loop to reduce Streamlit rerun overhead stutters
-            for frame_idx in range(100):
-                if not st.session_state.session_active or st.session_state.session_paused:
-                    break
-                    
-                success, img = st.session_state.cap.read()
-                if not success:
-                    failed_reads += 1
-                    time.sleep(0.1)
-                    if failed_reads > 40:
-                        st.session_state.session_active = False
-                        if st.session_state.cap is not None:
-                            st.session_state.cap.release()
-                            st.session_state.cap = None
-                        st.error("Could not connect to webcam. Please ensure your camera is connected and not in use by another app.")
-                        st.rerun()
-                        break
-                    continue
-                    
-                img = cv2.flip(img, 1)
-                
-                # 1. Face Mesh Sleep & Cover detection (Only run once every 2 frames)
-                if 'last_faces' not in st.session_state:
-                    st.session_state.last_faces = None
-                if 'last_is_sleepy' not in st.session_state:
-                    st.session_state.last_is_sleepy = False
-                if 'last_is_face_covered' not in st.session_state:
-                    st.session_state.last_is_face_covered = False
-                if 'last_ratio' not in st.session_state:
-                    st.session_state.last_ratio = 15.0
-
-                if frame_idx % 2 == 0 or st.session_state.last_faces is None:
-                    _, faces = st.session_state.face_mesh.findFaceMesh(img, draw=False)
-                    is_sleepy = False
-                    is_face_covered = False
-                    ratio = 15.0
-                    
-                    LEFT_EYE_TOP = 159
-                    LEFT_EYE_BOTTOM = 145
-                    FACE_LEFT = 130
-                    FACE_RIGHT = 243
-                    
-                    if faces:
-                        st.session_state.covered_frames = 0
-                        face = faces[0]
-                        try:
-                            eye_dist, _ = st.session_state.face_mesh.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
-                            face_dist, _ = st.session_state.face_mesh.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
-                            ratio = (eye_dist / face_dist) * 100
-                        except Exception:
-                            ratio = 15.0
-                            
-                        if ratio < eye_ratio_threshold:
-                            st.session_state.closed_frames += 1
-                        else:
-                            st.session_state.closed_frames = 0
-                            
-                        if st.session_state.closed_frames >= sleep_threshold_frames:
-                            is_sleepy = True
-                    else:
-                        st.session_state.closed_frames = 0
-                        st.session_state.covered_frames += 1
-                        if st.session_state.covered_frames >= 20:
-                            is_face_covered = True
-                            
-                    st.session_state.last_faces = faces
-                    st.session_state.last_is_sleepy = is_sleepy
-                    st.session_state.last_is_face_covered = is_face_covered
-                    st.session_state.last_ratio = ratio
-                    
-                faces = st.session_state.last_faces
-                is_sleepy = st.session_state.last_is_sleepy
-                is_face_covered = st.session_state.last_is_face_covered
-                ratio = st.session_state.last_ratio
-                
-                # Draw facial dots on all frames
-                if faces:
-                    face = faces[0]
-                    LEFT_EYE_TOP = 159
-                    LEFT_EYE_BOTTOM = 145
-                    cv2.circle(img, face[LEFT_EYE_TOP], 3, (34, 197, 94), -1)
-                    cv2.circle(img, face[LEFT_EYE_BOTTOM], 3, (34, 197, 94), -1)
-                    cvzone.putTextRect(img, f"Eye Aspect Ratio: {int(ratio)}", (30, 40), scale=1, thickness=1, colorR=(15, 23, 42))
-                        
-                # 2. YOLO Phone Detection (Only run once every 6 frames)
-                if 'last_phone_detected' not in st.session_state:
-                    st.session_state.last_phone_detected = False
-                if 'last_phone_boxes' not in st.session_state:
-                    st.session_state.last_phone_boxes = []
-                    
-                if frame_idx % 6 == 0:
-                    results = yolo_model.predict(img, stream=True, verbose=False)
-                    phone_detected = False
-                    classNames = yolo_model.names
-                    phone_boxes = []
-                    
-                    for r in results:
-                        boxes = r.boxes
-                        for box in boxes:
-                            cls_id = int(box.cls[0])
-                            conf = float(box.conf[0])
-                            
-                            if classNames[cls_id] == "cell phone" and conf > phone_conf_threshold:
-                                phone_detected = True
-                                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                                phone_boxes.append((x1, y1, x2, y2, int(conf*100)))
-                                
-                    st.session_state.last_phone_detected = phone_detected
-                    st.session_state.last_phone_boxes = phone_boxes
-                    
-                phone_detected = st.session_state.last_phone_detected
-                for (x1, y1, x2, y2, conf_pct) in st.session_state.last_phone_boxes:
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (236, 72, 153), 2)
-                    cvzone.putTextRect(img, f"Phone: {conf_pct}%", (x1, max(y1 - 10, 30)), scale=1, thickness=1, colorR=(236, 72, 153))
-                            
-                # 3. DB Logging
-                if is_face_covered and not st.session_state.was_covered:
-                    database.log_distraction(st.session_state.session_id, "face_covered")
-                    st.session_state.cover_count += 1
-                if is_sleepy and not st.session_state.was_sleepy:
-                    database.log_distraction(st.session_state.session_id, "sleep")
-                    st.session_state.sleep_count += 1
-                if phone_detected and not st.session_state.was_phone:
-                    database.log_distraction(st.session_state.session_id, "phone")
-                    st.session_state.phone_count += 1
-                    
-                st.session_state.was_covered = is_face_covered
-                st.session_state.was_sleepy = is_sleepy
-                st.session_state.was_phone = phone_detected
-                
-                # 4. Audio Alert Playing (Browser Client-side Autoplay base64 HTML5)
-                status_text = "FOCUSING..."
-                status_text_color = "#34d399"
-                distracted = False
-                now = time.time()
-                
-                if phone_detected:
-                    status_text = "PHONE DETECTED!"
-                    status_text_color = "#f97316"
-                    cvzone.putTextRect(img, "PUT THE PHONE AWAY!", (50, 100), scale=2, thickness=3, colorR=(249, 115, 22), colorT=(255, 255, 255))
-                    distracted = True
-                    if enable_phone and not mute_audio and audio_phone_b64:
-                        if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
-                            st.session_state.current_playing = "phone"
-                            st.session_state.last_played_time = now
-                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
-                elif is_sleepy:
-                    status_text = "SLEEPING!"
-                    status_text_color = "#ef4444"
-                    cvzone.putTextRect(img, "WAKE UP & STUDY!", (50, 100), scale=2, thickness=3, colorR=(239, 68, 68), colorT=(255, 255, 255))
-                    distracted = True
-                    if enable_sleep and not mute_audio and audio_sleep_b64:
-                        if st.session_state.current_playing != "sleep" or (now - st.session_state.last_played_time > 4.0):
-                            st.session_state.current_playing = "sleep"
-                            st.session_state.last_played_time = now
-                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
-                elif is_face_covered:
-                    status_text = "FACE HIDDEN!"
-                    status_text_color = "#ef4444"
-                    cvzone.putTextRect(img, "DONT COVER YOUR FACE!", (50, 100), scale=2, thickness=3, colorR=(239, 68, 68), colorT=(255, 255, 255))
-                    distracted = True
-                    if enable_facehide and not mute_audio and audio_facehide_b64:
-                        if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
-                            st.session_state.current_playing = "facehide"
-                            st.session_state.last_played_time = now
-                            audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
-                            
-                if not distracted:
-                    st.session_state.current_playing = None
-                    audio_ph.empty()
-                    
-                # 5. Timer Increment
-                now_t = time.time()
-                if now_t - st.session_state.last_time >= 1.0:
-                    st.session_state.total_sec += 1
-                    if not (is_sleepy or phone_detected or is_face_covered):
-                        st.session_state.focus_sec += 1
-                    st.session_state.last_time = now_t
-                    
-                tot_h = st.session_state.total_sec // 3600
-                tot_m = (st.session_state.total_sec % 3600) // 60
-                tot_s = st.session_state.total_sec % 60
-                time_str = f"{tot_h:02d}:{tot_m:02d}:{tot_s:02d}"
-                
-                focus_pct = int((st.session_state.focus_sec / st.session_state.total_sec) * 100) if st.session_state.total_sec > 0 else 100
-                distractions_tally = st.session_state.sleep_count + st.session_state.phone_count + st.session_state.cover_count
-                
-                # Update Metrics HTML
-                metrics_html = f"""
-                <div style="display: flex; gap: 15px; justify-content: space-between; margin-bottom: 25px; flex-wrap: wrap;">
-                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
-                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Timer ⏱️</div>
-                        <div style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 5px;">{time_str}</div>
-                    </div>
-                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
-                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Focus Score 🎯</div>
-                        <div style="font-size: 1.8rem; font-weight: 700; color: #34d399; margin-top: 5px;">{focus_pct}%</div>
-                    </div>
-                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
-                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Status 🚨</div>
-                        <div style="font-size: 1.6rem; font-weight: 700; color: {status_text_color}; margin-top: 5px;">{status_text}</div>
-                    </div>
-                    <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
-                        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Distractions ⚠️</div>
-                        <div style="font-size: 1.8rem; font-weight: 700; color: #f87171; margin-top: 5px;">{distractions_tally}</div>
-                    </div>
-                </div>
-                """
-                metric_ph.markdown(metrics_html, unsafe_allow_html=True)
-                
-                # Render Image
-                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                video_feed_ph.image(img_rgb, channels="RGB", use_container_width=True)
-                time.sleep(0.01)
-                
-            if st.session_state.session_active and not st.session_state.session_paused:
-                st.rerun()
-                
-        elif st.session_state.session_active and st.session_state.session_paused:
-            st.info("Your study session is paused. Click 'Resume Session' above to continue.")
-        else:
-            st.markdown(
-                """
-                <div class="dashboard-banner">
-                    <div style="position: relative; z-index: 1;">
-                        <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;">Find your flow state. 🧠</h3>
-                        <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; max-width: 800px; margin-bottom: 25px;">
-                            Welcome to your quiet study space. This dashboard acts as a smart focus companion, keeping you alert and phone-free while you study.
-                        </p>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
-                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
-                                <div style="font-size: 1.6rem; margin-bottom: 10px;">👁️</div>
-                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Drowsiness Alarm</h5>
-                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Tracks eye closure duration and plays a gentle audio tone to keep you awake.</p>
-                            </div>
-                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
-                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📱</div>
-                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Phone Shield</h5>
-                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Detects when your mobile phone wanders into the frame and overlays warning cues.</p>
-                            </div>
-                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
-                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📈</div>
-                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Habit Analytics</h5>
-                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Saves session metrics to a secure local database, mapping your long-term focus habits.</p>
-                            </div>
-                        </div>
-                        <div style="margin-top: 30px; font-size: 0.88rem; color: #94a3b8;">
-                            💡 Configure your triggers on the sidebar and click <b>Start Session</b> above to begin.
-                        </div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-    # ------------------ MODE 2: CLOUD WEBRTC STREAM ------------------
-    elif camera_mode == "Cloud WebRTC (Browser)":
-        st.subheader("Webcam Session Stream (WebRTC)")
-        
-        ctx = webrtc_streamer(
-            key="study-monitor-webrtc",
-            mode=WebRtcMode.SENDRECV,
-            video_processor_factory=lambda: StudyVideoProcessor(yolo_model),
-            media_stream_constraints={"video": True, "audio": False},
-        )
-        
-        if ctx.state.playing:
-            audio_ph = st.empty()
-            # Sync sidebar settings dynamically to WebRTC thread
-            if ctx.video_processor:
-                ctx.video_processor.eye_ratio_threshold = eye_ratio_threshold
-                ctx.video_processor.sleep_threshold = sleep_threshold_frames
-                ctx.video_processor.phone_conf_threshold = phone_conf_threshold
-                ctx.video_processor.enable_sleep = enable_sleep
-                ctx.video_processor.enable_phone = enable_phone
-                ctx.video_processor.enable_facehide = enable_facehide
-                
-                is_sleepy = ctx.video_processor.is_sleepy
-                phone_detected = ctx.video_processor.phone_detected
-                is_face_covered = ctx.video_processor.is_face_covered
-            else:
-                is_sleepy = False
-                phone_detected = False
-                is_face_covered = False
-                
-            # Initialize DB Session
-            if st.session_state.session_id is None:
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+    with col_btn1:
+        if not st.session_state.session_active:
+            if st.button("▶️ Start Session", type="primary", use_container_width=True):
                 st.session_state.session_id = database.start_session()
+                st.session_state.session_active = True
+                st.session_state.session_paused = False
+                st.session_state.face_mesh = FaceMeshDetector(maxFaces=1)
                 st.session_state.total_sec = 0
                 st.session_state.focus_sec = 0
                 st.session_state.sleep_count = 0
@@ -809,19 +459,174 @@ with tabs[0]:
                 st.session_state.was_sleepy = False
                 st.session_state.was_phone = False
                 st.session_state.was_covered = False
-                st.session_state.last_time = time.time()
-                st.session_state.last_played_time = 0
                 st.session_state.current_playing = None
+                st.session_state.last_time = time.time()
+                st.session_state.covered_frames = 0
+                st.session_state.closed_frames = 0
+                st.session_state.last_played_time = 0
+                st.rerun()
+        else:
+            if st.button("⏹️ Stop & Save", type="primary", use_container_width=True):
+                if st.session_state.cap is not None:
+                    st.session_state.cap.release()
+                    st.session_state.cap = None
+                database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
+                st.session_state.session_active = False
+                st.session_state.session_id = None
+                st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
+                st.rerun()
                 
-            # Timer increment
-            now = time.time()
-            if now - st.session_state.last_time >= 1.0:
-                st.session_state.total_sec += 1
-                if not (is_sleepy or phone_detected or is_face_covered):
-                    st.session_state.focus_sec += 1
-                st.session_state.last_time = now
+    with col_btn2:
+        if st.session_state.session_active:
+            if not st.session_state.session_paused:
+                if st.button("⏸️ Pause Session", use_container_width=True):
+                    st.session_state.session_paused = True
+                    st.rerun()
+            else:
+                if st.button("▶️ Resume Session", use_container_width=True):
+                    st.session_state.session_paused = False
+                    st.session_state.last_time = time.time()
+                    st.rerun()
+                    
+    with col_btn3:
+        if st.session_state.session_active:
+            if st.session_state.session_paused:
+                st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(234,179,8,0.15); border:1px solid #eab308; color:#facc15;">Session Paused</span></div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#4ade80;">Monitoring Active</span></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="text-align:center;"><span class="status-badge" style="background:rgba(148,163,184,0.15); border:1px solid #64748b; color:#94a3b8;">Session Inactive</span></div>', unsafe_allow_html=True)
+            
+    st.markdown("---")
+
+    if st.session_state.session_active and not st.session_state.session_paused:
+        if st.session_state.cap is None:
+            st.session_state.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            st.session_state.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            st.session_state.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            st.session_state.cap.read()
+            
+        metric_ph = st.empty()
+        video_feed_ph = st.empty()
+        audio_ph = st.empty()
+        
+        failed_reads = 0
+        # 100-frame in-place loop to reduce Streamlit rerun overhead stutters
+        for frame_idx in range(100):
+            if not st.session_state.session_active or st.session_state.session_paused:
+                break
                 
-            # Tally transitions and log to DB
+            success, img = st.session_state.cap.read()
+            if not success:
+                failed_reads += 1
+                time.sleep(0.1)
+                if failed_reads > 40:
+                    st.session_state.session_active = False
+                    if st.session_state.cap is not None:
+                        st.session_state.cap.release()
+                        st.session_state.cap = None
+                    st.error("Could not connect to webcam. Please ensure your camera is connected and not in use by another app.")
+                    st.rerun()
+                    break
+                continue
+                
+            img = cv2.flip(img, 1)
+            
+            # 1. Face Mesh Sleep & Cover detection (Only run once every 2 frames)
+            if 'last_faces' not in st.session_state:
+                st.session_state.last_faces = None
+            if 'last_is_sleepy' not in st.session_state:
+                st.session_state.last_is_sleepy = False
+            if 'last_is_face_covered' not in st.session_state:
+                st.session_state.last_is_face_covered = False
+            if 'last_ratio' not in st.session_state:
+                st.session_state.last_ratio = 15.0
+
+            if frame_idx % 2 == 0 or st.session_state.last_faces is None:
+                _, faces = st.session_state.face_mesh.findFaceMesh(img, draw=False)
+                is_sleepy = False
+                is_face_covered = False
+                ratio = 15.0
+                
+                LEFT_EYE_TOP = 159
+                LEFT_EYE_BOTTOM = 145
+                FACE_LEFT = 130
+                FACE_RIGHT = 243
+                
+                if faces:
+                    st.session_state.covered_frames = 0
+                    face = faces[0]
+                    try:
+                        eye_dist, _ = st.session_state.face_mesh.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
+                        face_dist, _ = st.session_state.face_mesh.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
+                        ratio = (eye_dist / face_dist) * 100
+                    except Exception:
+                        ratio = 15.0
+                        
+                    if ratio < eye_ratio_threshold:
+                        st.session_state.closed_frames += 1
+                    else:
+                        st.session_state.closed_frames = 0
+                        
+                    if st.session_state.closed_frames >= sleep_threshold_frames:
+                        is_sleepy = True
+                else:
+                    st.session_state.closed_frames = 0
+                    st.session_state.covered_frames += 1
+                    if st.session_state.covered_frames >= 20:
+                        is_face_covered = True
+                        
+                st.session_state.last_faces = faces
+                st.session_state.last_is_sleepy = is_sleepy
+                st.session_state.last_is_face_covered = is_face_covered
+                st.session_state.last_ratio = ratio
+                
+            faces = st.session_state.last_faces
+            is_sleepy = st.session_state.last_is_sleepy
+            is_face_covered = st.session_state.last_is_face_covered
+            ratio = st.session_state.last_ratio
+            
+            # Draw facial dots on all frames
+            if faces:
+                face = faces[0]
+                LEFT_EYE_TOP = 159
+                LEFT_EYE_BOTTOM = 145
+                cv2.circle(img, face[LEFT_EYE_TOP], 3, (34, 197, 94), -1)
+                cv2.circle(img, face[LEFT_EYE_BOTTOM], 3, (34, 197, 94), -1)
+                cvzone.putTextRect(img, f"Eye Aspect Ratio: {int(ratio)}", (30, 40), scale=1, thickness=1, colorR=(15, 23, 42))
+                    
+            # 2. YOLO Phone Detection (Only run once every 6 frames)
+            if 'last_phone_detected' not in st.session_state:
+                st.session_state.last_phone_detected = False
+            if 'last_phone_boxes' not in st.session_state:
+                st.session_state.last_phone_boxes = []
+                
+            if frame_idx % 6 == 0:
+                results = yolo_model.predict(img, stream=True, verbose=False)
+                phone_detected = False
+                classNames = yolo_model.names
+                phone_boxes = []
+                
+                for r in results:
+                    boxes = r.boxes
+                    for box in boxes:
+                        cls_id = int(box.cls[0])
+                        conf = float(box.conf[0])
+                        
+                        if classNames[cls_id] == "cell phone" and conf > phone_conf_threshold:
+                            phone_detected = True
+                            x1, y1, x2, y2 = map(int, box.xyxy[0])
+                            phone_boxes.append((x1, y1, x2, y2, int(conf*100)))
+                            
+                st.session_state.last_phone_detected = phone_detected
+                st.session_state.last_phone_boxes = phone_boxes
+                
+            phone_detected = st.session_state.last_phone_detected
+            for (x1, y1, x2, y2, conf_pct) in st.session_state.last_phone_boxes:
+                cv2.rectangle(img, (x1, y1), (x2, y2), (236, 72, 153), 2)
+                cvzone.putTextRect(img, f"Phone: {conf_pct}%", (x1, max(y1 - 10, 30)), scale=1, thickness=1, colorR=(236, 72, 153))
+                        
+            # 3. DB Logging
             if is_face_covered and not st.session_state.was_covered:
                 database.log_distraction(st.session_state.session_id, "face_covered")
                 st.session_state.cover_count += 1
@@ -836,14 +641,16 @@ with tabs[0]:
             st.session_state.was_sleepy = is_sleepy
             st.session_state.was_phone = phone_detected
             
-            # Client Audio Playback
+            # 4. Audio Alert Playing (Browser Client-side Autoplay base64 HTML5)
             status_text = "FOCUSING..."
             status_text_color = "#34d399"
             distracted = False
+            now = time.time()
             
             if phone_detected:
                 status_text = "PHONE DETECTED!"
                 status_text_color = "#f97316"
+                cvzone.putTextRect(img, "PUT THE PHONE AWAY!", (50, 100), scale=2, thickness=3, colorR=(249, 115, 22), colorT=(255, 255, 255))
                 distracted = True
                 if enable_phone and not mute_audio and audio_phone_b64:
                     if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
@@ -853,6 +660,7 @@ with tabs[0]:
             elif is_sleepy:
                 status_text = "SLEEPING!"
                 status_text_color = "#ef4444"
+                cvzone.putTextRect(img, "WAKE UP & STUDY!", (50, 100), scale=2, thickness=3, colorR=(239, 68, 68), colorT=(255, 255, 255))
                 distracted = True
                 if enable_sleep and not mute_audio and audio_sleep_b64:
                     if st.session_state.current_playing != "sleep" or (now - st.session_state.last_played_time > 4.0):
@@ -862,6 +670,7 @@ with tabs[0]:
             elif is_face_covered:
                 status_text = "FACE HIDDEN!"
                 status_text_color = "#ef4444"
+                cvzone.putTextRect(img, "DONT COVER YOUR FACE!", (50, 100), scale=2, thickness=3, colorR=(239, 68, 68), colorT=(255, 255, 255))
                 distracted = True
                 if enable_facehide and not mute_audio and audio_facehide_b64:
                     if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
@@ -873,7 +682,14 @@ with tabs[0]:
                 st.session_state.current_playing = None
                 audio_ph.empty()
                 
-            # Stats Panel Display
+            # 5. Timer Increment
+            now_t = time.time()
+            if now_t - st.session_state.last_time >= 1.0:
+                st.session_state.total_sec += 1
+                if not (is_sleepy or phone_detected or is_face_covered):
+                    st.session_state.focus_sec += 1
+                st.session_state.last_time = now_t
+                
             tot_h = st.session_state.total_sec // 3600
             tot_m = (st.session_state.total_sec % 3600) // 60
             tot_s = st.session_state.total_sec % 60
@@ -882,8 +698,9 @@ with tabs[0]:
             focus_pct = int((st.session_state.focus_sec / st.session_state.total_sec) * 100) if st.session_state.total_sec > 0 else 100
             distractions_tally = st.session_state.sleep_count + st.session_state.phone_count + st.session_state.cover_count
             
+            # Update Metrics HTML
             metrics_html = f"""
-            <div style="display: flex; gap: 15px; justify-content: space-between; margin-top: 20px; margin-bottom: 25px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 15px; justify-content: space-between; margin-bottom: 25px; flex-wrap: wrap;">
                 <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
                     <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Timer ⏱️</div>
                     <div style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 5px;">{time_str}</div>
@@ -902,54 +719,240 @@ with tabs[0]:
                 </div>
             </div>
             """
-            st.markdown(metrics_html, unsafe_allow_html=True)
+            metric_ph.markdown(metrics_html, unsafe_allow_html=True)
             
-            # Keep Streamlit running to update stats
-            time.sleep(1.0)
+            # Render Image
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            video_feed_ph.image(img_rgb, channels="RGB", use_container_width=True)
+            time.sleep(0.01)
+            
+        if st.session_state.session_active and not st.session_state.session_paused:
             st.rerun()
-        else:
-            if st.session_state.session_id is not None:
-                database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
-                st.session_state.session_id = None
-                st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
-                st.rerun()
-                
-            st.markdown(
-                """
-                <div class="dashboard-banner">
-                    <div style="position: relative; z-index: 1;">
-                        <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;">Find your flow state. 🧠</h3>
-                        <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; max-width: 800px; margin-bottom: 25px;">
-                            Welcome to your quiet study space. This dashboard acts as a smart focus companion, keeping you alert and phone-free while you study.
-                        </p>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
-                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
-                                <div style="font-size: 1.6rem; margin-bottom: 10px;">👁️</div>
-                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Drowsiness Alarm</h5>
-                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Tracks eye closure duration and plays a gentle audio tone to keep you awake.</p>
-                            </div>
-                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
-                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📱</div>
-                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Phone Shield</h5>
-                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Detects when your mobile phone wanders into the frame and overlays warning cues.</p>
-                            </div>
-                            <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
-                                <div style="font-size: 1.6rem; margin-bottom: 10px;">📈</div>
-                                <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Habit Analytics</h5>
-                                <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Saves session metrics to a secure local database, mapping your long-term focus habits.</p>
-                            </div>
+            
+    elif st.session_state.session_active and st.session_state.session_paused:
+        st.info("Your study session is paused. Click 'Resume Session' above to continue.")
+    else:
+        st.markdown(
+            """
+            <div class="dashboard-banner">
+                <div style="position: relative; z-index: 1;">
+                    <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;">Find your flow state. 🧠</h3>
+                    <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; max-width: 800px; margin-bottom: 25px;">
+                        Welcome to your quiet study space. This dashboard acts as a smart focus companion, keeping you alert and phone-free while you study.
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 1.6rem; margin-bottom: 10px;">👁️</div>
+                            <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Drowsiness Alarm</h5>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Tracks eye closure duration and plays a gentle audio tone to keep you awake.</p>
                         </div>
-                        <div style="margin-top: 30px; font-size: 0.88rem; color: #94a3b8;">
-                            💡 Configure your triggers on the sidebar and click <b>Start</b> on the camera component above to begin.
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 1.6rem; margin-bottom: 10px;">📱</div>
+                            <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Phone Shield</h5>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Detects when your mobile phone wanders into the frame and overlays warning cues.</p>
+                        </div>
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 1.6rem; margin-bottom: 10px;">📈</div>
+                            <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Habit Analytics</h5>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Saves session metrics to a secure local database, mapping your long-term focus habits.</p>
                         </div>
                     </div>
+                    <div style="margin-top: 30px; font-size: 0.88rem; color: #94a3b8;">
+                        💡 Configure your triggers on the sidebar and click <b>Start Session</b> above to begin.
+                    </div>
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-# ----- TAB 2: ANALYTICS -----
-with tabs[1]:
+# ------------------ MODE 2: CLOUD WEBRTC STREAM ------------------
+elif camera_mode == "Cloud WebRTC (Browser)":
+    st.subheader("Webcam Session Stream (WebRTC)")
+    
+    ctx = webrtc_streamer(
+        key="study-monitor-webrtc",
+        mode=WebRtcMode.SENDRECV,
+        video_processor_factory=lambda: StudyVideoProcessor(yolo_model),
+        media_stream_constraints={"video": True, "audio": False},
+    )
+    
+    if ctx.state.playing:
+        audio_ph = st.empty()
+        # Sync sidebar settings dynamically to WebRTC thread
+        if ctx.video_processor:
+            ctx.video_processor.eye_ratio_threshold = eye_ratio_threshold
+            ctx.video_processor.sleep_threshold = sleep_threshold_frames
+            ctx.video_processor.phone_conf_threshold = phone_conf_threshold
+            ctx.video_processor.enable_sleep = enable_sleep
+            ctx.video_processor.enable_phone = enable_phone
+            ctx.video_processor.enable_facehide = enable_facehide
+            
+            is_sleepy = ctx.video_processor.is_sleepy
+            phone_detected = ctx.video_processor.phone_detected
+            is_face_covered = ctx.video_processor.is_face_covered
+        else:
+            is_sleepy = False
+            phone_detected = False
+            is_face_covered = False
+            
+        # Initialize DB Session
+        if st.session_state.session_id is None:
+            st.session_state.session_id = database.start_session()
+            st.session_state.total_sec = 0
+            st.session_state.focus_sec = 0
+            st.session_state.sleep_count = 0
+            st.session_state.phone_count = 0
+            st.session_state.cover_count = 0
+            st.session_state.was_sleepy = False
+            st.session_state.was_phone = False
+            st.session_state.was_covered = False
+            st.session_state.last_time = time.time()
+            st.session_state.last_played_time = 0
+            st.session_state.current_playing = None
+            
+        # Timer increment
+        now = time.time()
+        if now - st.session_state.last_time >= 1.0:
+            st.session_state.total_sec += 1
+            if not (is_sleepy or phone_detected or is_face_covered):
+                st.session_state.focus_sec += 1
+            st.session_state.last_time = now
+            
+        # Tally transitions and log to DB
+        if is_face_covered and not st.session_state.was_covered:
+            database.log_distraction(st.session_state.session_id, "face_covered")
+            st.session_state.cover_count += 1
+        if is_sleepy and not st.session_state.was_sleepy:
+            database.log_distraction(st.session_state.session_id, "sleep")
+            st.session_state.sleep_count += 1
+        if phone_detected and not st.session_state.was_phone:
+            database.log_distraction(st.session_state.session_id, "phone")
+            st.session_state.phone_count += 1
+            
+        st.session_state.was_covered = is_face_covered
+        st.session_state.was_sleepy = is_sleepy
+        st.session_state.was_phone = phone_detected
+        
+        # Client Audio Playback
+        status_text = "FOCUSING..."
+        status_text_color = "#34d399"
+        distracted = False
+        
+        if phone_detected:
+            status_text = "PHONE DETECTED!"
+            status_text_color = "#f97316"
+            distracted = True
+            if enable_phone and not mute_audio and audio_phone_b64:
+                if st.session_state.current_playing != "phone" or (now - st.session_state.last_played_time > 4.0):
+                    st.session_state.current_playing = "phone"
+                    st.session_state.last_played_time = now
+                    audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_phone_b64}"></audio>', unsafe_allow_html=True)
+        elif is_sleepy:
+            status_text = "SLEEPING!"
+            status_text_color = "#ef4444"
+            distracted = True
+            if enable_sleep and not mute_audio and audio_sleep_b64:
+                if st.session_state.current_playing != "sleep" or (now - st.session_state.last_played_time > 4.0):
+                    st.session_state.current_playing = "sleep"
+                    st.session_state.last_played_time = now
+                    audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_sleep_b64}"></audio>', unsafe_allow_html=True)
+        elif is_face_covered:
+            status_text = "FACE HIDDEN!"
+            status_text_color = "#ef4444"
+            distracted = True
+            if enable_facehide and not mute_audio and audio_facehide_b64:
+                if st.session_state.current_playing != "facehide" or (now - st.session_state.last_played_time > 4.0):
+                    st.session_state.current_playing = "facehide"
+                    st.session_state.last_played_time = now
+                    audio_ph.markdown(f'<audio autoplay src="data:audio/mp3;base64,{audio_facehide_b64}"></audio>', unsafe_allow_html=True)
+                    
+        if not distracted:
+            st.session_state.current_playing = None
+            audio_ph.empty()
+            
+        # Stats Panel Display
+        tot_h = st.session_state.total_sec // 3600
+        tot_m = (st.session_state.total_sec % 3600) // 60
+        tot_s = st.session_state.total_sec % 60
+        time_str = f"{tot_h:02d}:{tot_m:02d}:{tot_s:02d}"
+        
+        focus_pct = int((st.session_state.focus_sec / st.session_state.total_sec) * 100) if st.session_state.total_sec > 0 else 100
+        distractions_tally = st.session_state.sleep_count + st.session_state.phone_count + st.session_state.cover_count
+        
+        metrics_html = f"""
+        <div style="display: flex; gap: 15px; justify-content: space-between; margin-top: 20px; margin-bottom: 25px; flex-wrap: wrap;">
+            <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Timer ⏱️</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 5px;">{time_str}</div>
+            </div>
+            <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Focus Score 🎯</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #34d399; margin-top: 5px;">{focus_pct}%</div>
+            </div>
+            <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Status 🚨</div>
+                <div style="font-size: 1.6rem; font-weight: 700; color: {status_text_color}; margin-top: 5px;">{status_text}</div>
+            </div>
+            <div class="metric-card-wrapper" style="flex: 1; min-width: 150px;">
+                <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Distractions ⚠️</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: #f87171; margin-top: 5px;">{distractions_tally}</div>
+            </div>
+        </div>
+        """
+        st.markdown(metrics_html, unsafe_allow_html=True)
+        
+        # Keep Streamlit running to update stats
+        time.sleep(1.0)
+        st.rerun()
+    else:
+        if st.session_state.session_id is not None:
+            database.end_session(st.session_state.session_id, st.session_state.total_sec, st.session_state.focus_sec)
+            st.session_state.session_id = None
+            st.toast("Session successfully logged! Head to Analytics to review your stats.", icon="💾")
+            st.rerun()
+            
+        st.markdown(
+            """
+            <div class="dashboard-banner">
+                <div style="position: relative; z-index: 1;">
+                    <h3 style="margin-top: 0; color: #3b82f6; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;">Find your flow state. 🧠</h3>
+                    <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; max-width: 800px; margin-bottom: 25px;">
+                        Welcome to your quiet study space. This dashboard acts as a smart focus companion, keeping you alert and phone-free while you study.
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 1.6rem; margin-bottom: 10px;">👁️</div>
+                            <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Drowsiness Alarm</h5>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Tracks eye closure duration and plays a gentle audio tone to keep you awake.</p>
+                        </div>
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 1.6rem; margin-bottom: 10px;">📱</div>
+                            <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Phone Shield</h5>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Detects when your mobile phone wanders into the frame and overlays warning cues.</p>
+                        </div>
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 1.6rem; margin-bottom: 10px;">📈</div>
+                            <h5 style="color: #f1f5f9; margin: 0 0 6px 0; font-weight: 600;">Habit Analytics</h5>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0; line-height: 1.45;">Saves session metrics to a secure local database, mapping your long-term focus habits.</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 30px; font-size: 0.88rem; color: #94a3b8;">
+                        💡 Configure your triggers on the sidebar and click <b>Start</b> on the camera component above to begin.
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+st.markdown("---")
+
+# ------------------ SECONDARY SECTION: TABS ------------------
+secondary_tabs = st.tabs(["📊 Focus Analytics", "📋 Session History"])
+
+# ----- TAB 1: ANALYTICS -----
+with secondary_tabs[0]:
     st.subheader("Concentration & Productivity Reports")
     
     # Query database for session entries
@@ -1077,8 +1080,8 @@ with tabs[1]:
             ax.grid(axis='y', linestyle='--', alpha=0.15, color='#cbd5e1')
             st.pyplot(fig)
 
-# ----- TAB 3: HISTORY -----
-with tabs[2]:
+# ----- TAB 2: HISTORY -----
+with secondary_tabs[1]:
     st.subheader("Session History Log 📋")
     df_sessions = get_data("SELECT * FROM sessions")
     if df_sessions.empty:
