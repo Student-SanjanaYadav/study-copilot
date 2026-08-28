@@ -300,8 +300,8 @@ class StudyVideoProcessor(VideoProcessorBase):
             cv2.circle(img, face[LEFT_EYE_BOTTOM], 3, (34, 197, 94), -1)
             cvzone.putTextRect(img, f"Eye Ratio: {int(ratio)}", (30, 40), scale=1, thickness=1, colorR=(15, 23, 42))
             
-        # 2. YOLO Phone Detection (Only run once every 3 frames for performance)
-        if self.frame_counter % 3 == 0 or self.frame_counter < 10:
+        # 2. YOLO Phone Detection (Only run once every 6 frames for performance)
+        if self.frame_counter % 6 == 0 or self.frame_counter < 10:
             results = self.phone_detector.predict(img, stream=True, verbose=False)
             phone_detected = False
             classNames = self.phone_detector.names
@@ -601,13 +601,13 @@ with tabs[0]:
                     cv2.circle(img, face[LEFT_EYE_BOTTOM], 3, (34, 197, 94), -1)
                     cvzone.putTextRect(img, f"Eye Aspect Ratio: {int(ratio)}", (30, 40), scale=1, thickness=1, colorR=(15, 23, 42))
                         
-                # 2. YOLO Phone Detection (Only run once every 3 frames)
+                # 2. YOLO Phone Detection (Only run once every 6 frames)
                 if 'last_phone_detected' not in st.session_state:
                     st.session_state.last_phone_detected = False
                 if 'last_phone_boxes' not in st.session_state:
                     st.session_state.last_phone_boxes = []
                     
-                if frame_idx % 3 == 0:
+                if frame_idx % 6 == 0:
                     results = yolo_model.predict(img, stream=True, verbose=False)
                     phone_detected = False
                     classNames = yolo_model.names
