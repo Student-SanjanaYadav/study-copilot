@@ -548,10 +548,9 @@ if camera_mode == "Local Webcam (OpenCV)":
                 st.session_state.cap.read()
                 
             failed_reads = 0
-            for frame_idx in range(30):
-                if not st.session_state.session_active or st.session_state.session_paused:
-                    break
-                    
+            frame_idx = 0
+            while st.session_state.session_active and not st.session_state.session_paused:
+                frame_idx += 1
                 success, img = st.session_state.cap.read()
                 if not success:
                     failed_reads += 1
@@ -565,7 +564,8 @@ if camera_mode == "Local Webcam (OpenCV)":
                         st.rerun()
                         break
                     continue
-                    
+                
+                failed_reads = 0
                 img = cv2.flip(img, 1)
                 
                 # 1. Face Mesh Sleep & Cover detection (Only run once every 2 frames)
@@ -762,8 +762,7 @@ if camera_mode == "Local Webcam (OpenCV)":
                 video_feed_ph.image(img_rgb, channels="RGB", use_container_width=True)
                 time.sleep(0.01)
                 
-            if st.session_state.session_active and not st.session_state.session_paused:
-                st.rerun()
+
 
 # ------------------ MODE 2: CLOUD WEBRTC STREAM ------------------
 elif camera_mode == "Cloud WebRTC (Browser)":
