@@ -255,12 +255,17 @@ class StudyVideoProcessor(VideoProcessorBase):
         if faces:
             self.covered_frames = 0
             face = faces[0]
-            try:
-                eye_dist, _ = self.face_detector.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
-                face_dist, _ = self.face_detector.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
-                ratio = (eye_dist / face_dist) * 100
-            except Exception:
-                ratio = 15.0
+            
+            # Direct Euclidean distance formula to bypass cvzone API compatibility issues
+            p1 = face[LEFT_EYE_TOP]
+            p2 = face[LEFT_EYE_BOTTOM]
+            eye_dist = ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+            
+            p3 = face[FACE_LEFT]
+            p4 = face[FACE_RIGHT]
+            face_dist = ((p3[0] - p4[0])**2 + (p3[1] - p4[1])**2)**0.5
+            
+            ratio = (eye_dist / face_dist) * 100 if face_dist > 0 else 15.0
                 
             if ratio < self.eye_ratio_threshold:
                 self.closed_frames += 1
@@ -270,7 +275,7 @@ class StudyVideoProcessor(VideoProcessorBase):
             if self.closed_frames >= self.sleep_threshold:
                 is_sleepy = True
         else:
-            self.closed_frames = 0
+            self.closed_frames = max(0, self.closed_frames - 1)
             self.covered_frames += 1
             if self.covered_frames >= 20:
                 is_face_covered = True
@@ -571,13 +576,18 @@ if camera_mode == "Local Webcam (OpenCV)":
                 if faces:
                     st.session_state.covered_frames = 0
                     face = faces[0]
-                    try:
-                        eye_dist, _ = st.session_state.face_mesh.findDistance(face[LEFT_EYE_TOP], face[LEFT_EYE_BOTTOM])
-                        face_dist, _ = st.session_state.face_mesh.findDistance(face[FACE_LEFT], face[FACE_RIGHT])
-                        ratio = (eye_dist / face_dist) * 100
-                    except Exception:
-                        ratio = 15.0
-                        
+                    
+                    # Direct Euclidean distance formula to bypass cvzone API compatibility issues
+                    p1 = face[LEFT_EYE_TOP]
+                    p2 = face[LEFT_EYE_BOTTOM]
+                    eye_dist = ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+                    
+                    p3 = face[FACE_LEFT]
+                    p4 = face[FACE_RIGHT]
+                    face_dist = ((p3[0] - p4[0])**2 + (p3[1] - p4[1])**2)**0.5
+                    
+                    ratio = (eye_dist / face_dist) * 100 if face_dist > 0 else 15.0
+                            
                     if ratio < eye_ratio_threshold:
                         st.session_state.closed_frames += 1
                     else:
@@ -586,7 +596,7 @@ if camera_mode == "Local Webcam (OpenCV)":
                     if st.session_state.closed_frames >= sleep_threshold_frames:
                         is_sleepy = True
                 else:
-                    st.session_state.closed_frames = 0
+                    st.session_state.closed_frames = max(0, st.session_state.closed_frames - 1)
                     st.session_state.covered_frames += 1
                     if st.session_state.covered_frames >= 20:
                         is_face_covered = True
